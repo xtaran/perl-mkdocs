@@ -1,0 +1,3 @@
+Use Text::Markup as interface to all markup backends.
+
+Use Template::Toolkit for layouts.

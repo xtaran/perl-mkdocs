@@ -1,0 +1,78 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+use 5.010;
+
+use File::Find;
+use Text::Markdown 'markdown';
+use File::Slurp::Tiny qw(read_file write_file);
+
+my %suffix = (
+    md => 'markdown',
+    mkd => 'markdown',
+    mdwn => 'markdown',
+    markdown => 'markdown',
+    mmd => 'multimarkdown',
+    pod => 'pod',
+    pm => 'pod',
+    pl => 'pod',
+);
+my $suffix_re = '('.join('|', keys %suffix).')';
+
+die "Usage: $0 <inputdir> <outputdir>" unless @ARGV == 2;
+my ($inputdir, $outputdir) = @ARGV;
+
+my @files;
+find(\&_wanted, $inputdir);
+
+my %title;
+foreach my $file (@files) {
+    my $html = markdown(read_file($file));
+    if ($html =~ m(<h1>(.*?)</h1>)i) {
+        $title{$file} = $1;
+    }
+}
+
+my $head = qq(<html>\n<head>\n<title>);
+my $toc =
+    qq(</title>\n</head>\n\n<body>\n<div id="menu">\n).
+    generate_toc().
+    qq(</div>\n<div id="contents">\n);
+my $footer = qq(</div>\n</body>\n</html>\n);
+
+foreach my $file (@files) {
+    my $html = markdown(read_file($file));
+    my $outputfile = $file;
+    $outputfile =~ s:$inputdir:$outputdir:;
+    $outputfile =~ s/\.$suffix_re$/.html/;
+    $html = $head.$title{$file}.$toc.$html.$footer;
+    write_file($outputfile, $html);
+}
+
+use Data::Dumper;
+die Dumper \@files, \%title;
+
+### Functions
+
+sub _wanted {
+    return if -d $_;
+    foreach my $key (keys %suffix) {
+        if (/\.$key$/i) {
+            push(@files, $File::Find::name);
+            last;
+        }
+    }
+}
+
+sub generate_toc {
+    my $toc = "<ul>\n";
+    foreach my $file (sort keys %title) {
+        my $linkfile = $file;
+        $linkfile =~ s:$inputdir::;
+        $linkfile =~ s/\.$suffix_re$/.html/;
+        $toc .= qq(<li><a href="$linkfile">$title{$file}</a></li>\n);
+    }
+    $toc .= "</ul>\n";
+    return $toc;
+}
