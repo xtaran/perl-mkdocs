@@ -29,7 +29,7 @@ find(\&_wanted, $inputdir);
 my %title;
 foreach my $file (@files) {
     my $html = markdown(read_file($file));
-    if ($html =~ m(<h1>(.*?)</h1>)i) {
+    if ($html =~ m(<h1[^>]*>(.*?)</h1>)i) {
         $title{$file} = $1;
     }
 }
