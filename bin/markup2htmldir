@@ -5,30 +5,23 @@ use warnings;
 use 5.010;
 
 use File::Find;
-use Text::Markdown 'markdown';
+use Text::Markup;
 use File::Slurp::Tiny qw(read_file write_file);
-
-my %suffix = (
-    md => 'markdown',
-    mkd => 'markdown',
-    mdwn => 'markdown',
-    markdown => 'markdown',
-    mmd => 'multimarkdown',
-    pod => 'pod',
-    pm => 'pod',
-    pl => 'pod',
-);
-my $suffix_re = '('.join('|', keys %suffix).')';
 
 die "Usage: $0 <inputdir> <outputdir>" unless @ARGV == 2;
 my ($inputdir, $outputdir) = @ARGV;
+
+my $parser = Text::Markup->new(
+    default_format   => 'markdown',
+    default_encoding => 'UTF-8',
+);
 
 my @files;
 find(\&_wanted, $inputdir);
 
 my %title;
 foreach my $file (@files) {
-    my $html = markdown(read_file($file));
+    my $html = $parser->parse(file =>$file);
     if ($html =~ m(<h1[^>]*>(.*?)</h1>)i) {
         $title{$file} = $1;
     } elsif ($html =~ m(<title[^>]*>(.*?)</title>)i) {
@@ -44,35 +37,41 @@ my $toc =
 my $footer = qq(</div>\n</body>\n</html>\n);
 
 foreach my $file (@files) {
-    my $html = markdown(read_file($file));
+    # Compute output file name.
     my $outputfile = $file;
     $outputfile =~ s:$inputdir:$outputdir:;
-    $outputfile =~ s/\.$suffix_re$/.html/;
+    $outputfile =~ s/\.[^.]+$/.html/;
+
+    my $html = $parser->parse(file => $file);
+
+    # Strip off Text::Markup's scaffold and add our own.
+    $html =~ s:^.*<body[^>]*>::s;
+    $html =~ s:</body>.*$::s;
     $html = $head.$title{$file}.$toc.$html.$footer;
+
     write_file($outputfile, $html);
 }
 
-use Data::Dumper;
-die Dumper \@files, \%title;
+#use Data::Dumper;
+#die Dumper \@files, \%title;
 
 ### Functions
 
 sub _wanted {
     return if -d $_;
-    foreach my $key (keys %suffix) {
-        if (/\.$key$/i) {
-            push(@files, $File::Find::name);
-            last;
-        }
+    my $type = $parser->guess_format($File::Find::name);
+    if ($type) {
+        push(@files, $File::Find::name);
     }
+    return;
 }
 
 sub generate_toc {
     my $toc = "<ul>\n";
     foreach my $file (sort keys %title) {
         my $linkfile = $file;
-        $linkfile =~ s:$inputdir::;
-        $linkfile =~ s/\.$suffix_re$/.html/;
+        $linkfile =~ s:$inputdir/::;
+        $linkfile =~ s/\.[^.]+$/.html/;
         $toc .= qq(<li><a href="$linkfile">$title{$file}</a></li>\n);
     }
     $toc .= "</ul>\n";
