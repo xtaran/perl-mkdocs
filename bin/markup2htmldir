@@ -11,6 +11,10 @@ use File::Slurp::Tiny qw(read_file write_file);
 die "Usage: $0 <inputdir> <outputdir>" unless @ARGV == 2;
 my ($inputdir, $outputdir) = @ARGV;
 
+# Remove potential trailing slashes
+$inputdir  =~ s:/+$::;
+$outputdir =~ s:/+$::;
+
 my $parser = Text::Markup->new(
     default_format   => 'markdown',
     default_encoding => 'UTF-8',
