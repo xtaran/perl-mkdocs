@@ -21,7 +21,7 @@ find(\&_wanted, $inputdir);
 
 my %title;
 foreach my $file (@files) {
-    my $html = $parser->parse(file =>$file);
+    my $html = $parser->parse(file => $file);
     if ($html =~ m(<h1[^>]*>(.*?)</h1>)i) {
         $title{$file} = $1;
     } elsif ($html =~ m(<title[^>]*>(.*?)</title>)i) {
